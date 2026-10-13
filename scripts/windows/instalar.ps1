@@ -17,7 +17,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 function Step($message) { Write-Host "• $message" }
-function Act($message, [scriptblock]$action) { Step $message; if (-not $DryRun) { & $action } }
+function Act($message, [scriptblock]$work) { Step $message; if (-not $DryRun) { & $work } }
 
 # 1. requirements ----------------------------------------------------------------
 $node = Get-Command node -ErrorAction SilentlyContinue
@@ -38,12 +38,12 @@ if ($old) {
 
 # 3. start with Windows -------------------------------------------------------------
 $vbs = Join-Path $PSScriptRoot 'iniciar-oculto.vbs'
-$action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('"' + $vbs + '"')
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+$taskAction = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('"' + $vbs + '"')
+$taskTrigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+$taskSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
   -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
 Act "Registrando a tarefa '$TaskName' (liga o servidor ao entrar no Windows)…" {
-  Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
+  Register-ScheduledTask -TaskName $TaskName -Action $taskAction -Trigger $taskTrigger -Settings $taskSettings `
     -Description 'Servidor do Milaclone, em segundo plano' -Force | Out-Null
 }
 Act 'Ligando o Milaclone agora…' { Start-ScheduledTask -TaskName $TaskName }

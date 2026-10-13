@@ -1,6 +1,6 @@
 {
   "name": "canvas-board",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A self-hosted visual board / Milanote-style workspace",
   "main": "server.js",
   "type": "commonjs",

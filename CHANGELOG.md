@@ -2,6 +2,10 @@
 
 Cada versão segue `MAIOR.MENOR.CORREÇÃO`: correção quando só conserta, menor quando traz recurso novo, maior quando muda algo que exige atenção ao atualizar. Antes de qualquer atualização o Milaclone faz um backup do banco (`data/backups/board-…-before-update.db`).
 
+## 1.0.1
+
+- Corrigido o instalador do Windows (`Instalar Milaclone.bat`), que falhava ao registrar a tarefa de início com o Windows.
+
 ## 1.0.0 — consolidação
 
 Primeira versão fechada, reunindo tudo que foi feito sobre a base original do Milanote-clone.
