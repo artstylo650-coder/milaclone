@@ -55,18 +55,40 @@ test('board card navigates in and breadcrumb walks back out', async ({ page }) =
 });
 
 test('zoom controls change the level and reset to 100%', async ({ page }) => {
-  await page.goto('/');
+  await freshCanvas(page);
   await page.click('#zoomIn');
   await expect(page.locator('#zoomLvl')).not.toHaveText('100%');
   await page.click('#zoomReset');
   await expect(page.locator('#zoomLvl')).toHaveText('100%');
 });
 
+test('fit view frames cards that are far apart', async ({ page }) => {
+  const canvasId = await freshCanvas(page);
+  await page.evaluate(async (id) => {
+    const create = (x, y, title) => fetch('/api/item', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ canvasId: id, type: 'note', x, y, data: { title } })
+    });
+    await Promise.all([create(-900, -500, 'Left'), create(2400, 1200, 'Right')]);
+  }, canvasId);
+  await page.reload();
+  await page.click('#zoomReset');
+  await expect(page.locator('#zoomLvl')).not.toHaveText('100%');
+
+  const framed = await page.evaluate(() => {
+    const stage = document.querySelector('#stage').getBoundingClientRect();
+    const cards = [...document.querySelectorAll('.item.type-note')].map(el => el.getBoundingClientRect());
+    return cards.every(r => r.left >= stage.left - 2 && r.top >= stage.top - 2 &&
+      r.right <= stage.right + 2 && r.bottom <= stage.bottom + 2);
+  });
+  expect(framed).toBeTruthy();
+});
+
 test('delete a note via its trash button', async ({ page }) => {
   await freshCanvas(page);
   await place(page, 'note');
   await expect(page.locator('.item.type-note')).toHaveCount(1);
-  await page.locator('.item.type-note .card-tools button[title="Delete"]').click();
+  await page.locator('.item.type-note .card-tools button[title="Excluir"]').click();
   await expect(page.locator('.item.type-note')).toHaveCount(0);
 });
 
@@ -142,7 +164,7 @@ test('context menu duplicates a note', async ({ page }) => {
   const note = page.locator('.item.type-note');
   await note.click({ button: 'right' });
   await expect(page.locator('#ctxmenu.open')).toBeVisible();
-  await page.locator('#ctxmenu .ctx-item', { hasText: 'Duplicate' }).click();
+  await page.locator('#ctxmenu .ctx-item', { hasText: 'Duplicar' }).click();
   await expect(page.locator('.item.type-note')).toHaveCount(2);
 });
 
@@ -152,7 +174,7 @@ test('lock position blocks drag', async ({ page }) => {
   await leaveEdit(page);
   const note = page.locator('.item.type-note');
   await note.click({ button: 'right' });
-  await page.locator('#ctxmenu .ctx-item', { hasText: 'Lock Position' }).click();
+  await page.locator('#ctxmenu .ctx-item', { hasText: 'Travar posição' }).click();
   await expect(note).toHaveClass(/locked/);
   const before = await note.boundingBox();
   await page.mouse.move(before.x + before.width / 2, before.y + 20);
@@ -162,4 +184,34 @@ test('lock position blocks drag', async ({ page }) => {
   const after = await note.boundingBox();
   expect(Math.abs(after.x - before.x)).toBeLessThan(4);
   expect(Math.abs(after.y - before.y)).toBeLessThan(4);
+});
+
+test('a column lays its cards out side by side or in a grid, and keeps the choice', async ({ page }) => {
+  const canvasId = await freshCanvas(page);
+  const colId = await page.evaluate(async id => {
+    const post = b => fetch('/api/item', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(r => r.json());
+    const col = await post({ canvasId: id, type: 'column', x: 100, y: 100, w: 220, data: { title: 'Fotos' } });
+    for (let i = 0; i < 3; i++) await post({ canvasId: id, type: 'note', parentItemId: col.id, x: 0, y: i, data: { title: 'N' + i } });
+    return col.id;
+  }, canvasId);
+  await page.reload();
+  const col = page.locator(`[data-id="${colId}"]`);
+  const kids = col.locator('.col-body > .item');
+  const tops = async () => Promise.all([0, 1, 2].map(async i => Math.round((await kids.nth(i).boundingBox()).y)));
+  let t = await tops();
+  expect(t[1]).toBeGreaterThan(t[0]);                       // vertical
+
+  await col.locator('.col-layout').click();                 // side by side
+  await expect(col).toHaveClass(/layout-row/);
+  t = await tops();
+  expect(new Set(t).size).toBe(1);
+  const xs = await Promise.all([0, 1, 2].map(async i => (await kids.nth(i).boundingBox()).x));
+  expect(xs[1]).toBeGreaterThan(xs[0] + 150);
+  await page.waitForResponse(r => r.url().includes('/api/item/' + colId) && r.request().method() === 'PATCH');
+  await page.reload();
+  await expect(col).toHaveClass(/layout-row/);
+
+  await col.click({ button: 'right', position: { x: 10, y: 10 } });
+  await page.locator('#ctxmenu .ctx-item', { hasText: 'Layout: Grade' }).click();
+  await expect(col).toHaveClass(/layout-grid/);
 });

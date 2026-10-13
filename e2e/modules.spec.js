@@ -9,7 +9,7 @@ const { test, expect } = require('@playwright/test');
 const { freshCanvas, place, leaveEdit } = require('./helpers');
 
 const PATCH = r => r.url().includes('/api/item/') && r.request().method() === 'PATCH';
-const CREATE = r => r.url().endsWith('/api/item') && r.request().method() === 'POST';
+const TRANSFER = r => r.url().endsWith('/api/transfer') && r.request().method() === 'POST';
 
 test('context menu: copy then paste yields a second note', async ({ page }) => {
   await freshCanvas(page);
@@ -18,12 +18,12 @@ test('context menu: copy then paste yields a second note', async ({ page }) => {
   const note = page.locator('.item.type-note');
 
   await note.click({ button: 'right' });
-  await page.locator('#ctxmenu .ctx-item', { hasText: 'Copy' }).click();
+  await page.locator('#ctxmenu .ctx-item', { hasText: 'Copiar' }).click();
 
   await note.first().click({ button: 'right' });
-  const created = page.waitForResponse(CREATE);
-  await page.locator('#ctxmenu .ctx-item', { hasText: 'Paste' }).click();
-  await created;
+  const pasted = page.waitForResponse(TRANSFER);
+  await page.locator('#ctxmenu .ctx-item', { hasText: 'Colar' }).click();
+  await pasted;
 
   await expect(note).toHaveCount(2);
 });
@@ -35,14 +35,14 @@ test('context menu: cut then paste keeps a single note (moves it)', async ({ pag
   const note = page.locator('.item.type-note');
 
   await note.click({ button: 'right' });
-  await page.locator('#ctxmenu .ctx-item', { hasText: 'Cut' }).click();
+  await page.locator('#ctxmenu .ctx-item', { hasText: 'Recortar' }).click();
 
   await note.click({ button: 'right' });
-  const created = page.waitForResponse(CREATE);
-  await page.locator('#ctxmenu .ctx-item', { hasText: 'Paste' }).click();
-  await created;
+  const pasted = page.waitForResponse(TRANSFER);
+  await page.locator('#ctxmenu .ctx-item', { hasText: 'Colar' }).click();
+  await pasted;
 
-  // cut removes the original as part of the paste, so the count stays at 1
+  // cut + paste moves the original, so the count stays at 1
   await expect(note).toHaveCount(1);
 });
 
@@ -135,17 +135,35 @@ test('Enter renames the selected board and the name persists', async ({ page }) 
   await expect(page.locator('.item.type-board .btitle')).toHaveValue('Renamed');
 });
 
-test('dragging empty canvas pans the world', async ({ page }) => {
+test('middle-dragging empty canvas pans the world', async ({ page }) => {
   await freshCanvas(page);
   const transformBefore = await page.locator('#world').evaluate(el => el.style.transform);
 
   await page.mouse.move(700, 300);
-  await page.mouse.down();
+  await page.mouse.down({ button: 'middle' });
   await page.mouse.move(500, 500, { steps: 10 });
-  await page.mouse.up();
+  await page.mouse.up({ button: 'middle' });
 
   const transformAfter = await page.locator('#world').evaluate(el => el.style.transform);
   expect(transformAfter).not.toBe(transformBefore);
+});
+
+test('camera movement batches synchronous persistence writes', async ({ page }) => {
+  await freshCanvas(page);
+  await page.evaluate(() => {
+    window.__cameraWrites = 0;
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (String(key).startsWith('cam:')) window.__cameraWrites++;
+      return original.call(this, key, value);
+    };
+    const stage = document.getElementById('stage');
+    for (let i = 0; i < 30; i++) {
+      stage.dispatchEvent(new WheelEvent('wheel', { deltaX: 2, deltaY: 3, bubbles: true, cancelable: true }));
+    }
+  });
+  await page.waitForTimeout(250);
+  expect(await page.evaluate(() => window.__cameraWrites)).toBeLessThanOrEqual(2);
 });
 
 test('board selection chrome replaces the badge with rail actions', async ({ page }) => {

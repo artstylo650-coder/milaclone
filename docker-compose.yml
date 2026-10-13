@@ -18,6 +18,14 @@ services:
     environment:
       - PORT=4321
       - DATA_DIR=/data
+      # Daily SQLite snapshots (14 kept). Mount another disk at /backups and
+      # uncomment to keep them off the data volume.
+      # - BACKUP_DIR=/backups
+      # ComfyUI bridge: either a ComfyUI reachable from the container…
+      # - COMFYUI_URL=http://host.docker.internal:8188
+      # …or RunPod Serverless (worker-comfyui 5.x). Keep the key in .env.
+      # - RUNPOD_ENDPOINT_ID=${RUNPOD_ENDPOINT_ID}
+      # - RUNPOD_API_KEY=${RUNPOD_API_KEY}
     # Dev loop: `docker compose watch` syncs edits into the running container.
     # Plain `up -d` ignores this block, so the normal deploy is unaffected.
     develop:
@@ -33,11 +41,8 @@ services:
           path: ./server.js
           target: /app/server.js
         - action: sync+restart
-          path: ./routes.js
-          target: /app/routes.js
-        - action: sync+restart
-          path: ./db.js
-          target: /app/db.js
+          path: ./backend
+          target: /app/backend
         # Dependency changes can't be synced — better-sqlite3 must recompile.
         - action: rebuild
           path: ./package-lock.json

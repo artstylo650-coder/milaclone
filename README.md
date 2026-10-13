@@ -16,10 +16,17 @@ on disk, so it's trivial to back up and fully yours.
 - Right-click menu: copy, cut, paste, duplicate, rename, lock position, trash
 - Everything autosaves to SQLite under `data/`
 - Per-board camera position remembered in your browser
+- Lines/arrows between cards, with labels
+- Undo/redo, a 30-day trash, daily automatic snapshots and full backup/restore
+- Search across every board (`Ctrl+K`), tags and a board filter
+- Full-size image viewer, Markdown note formatting, align/distribute, snap to grid, minimap
+- Export a board or a selection as PNG or PDF
+- Live updates between open devices
+- ComfyUI node: generate images on a local ComfyUI or RunPod Serverless, using connected photos as inputs
 
 ## Requirements
 
-- Node.js 18 or newer (`node --version` to check)
+- Node.js 20.9 or newer (`node --version` to check)
 - No database server and no Python needed. The only native dependency is
   [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3), which ships
   prebuilt binaries for common platforms; on other platforms `npm install`
@@ -240,28 +247,165 @@ sudo systemctl enable --now canvas-board
 sudo systemctl status canvas-board
 ```
 
+## Windows app (no .bat to start)
+
+Double-click **`Instalar Milaclone.bat`** once. It checks Node.js (and git, for
+updates), installs the dependencies, and:
+
+- registers a scheduled task that starts the server **hidden every time you log
+  on to Windows** (`scripts/windows/servidor.ps1` keeps it running and starts it
+  again if it stops);
+- creates a **Milaclone** shortcut in the Start menu and on the Desktop that opens
+  the app in its own window (Edge or Chrome in `--app` mode: no tabs, no address
+  bar, own taskbar icon).
+
+It is also a **PWA**: in Chrome/Edge, menu → *Instalar Milaclone* gives the same
+window with an icon of its own (use either the shortcut or the PWA).
+`Desinstalar Milaclone.bat` removes the task and shortcuts; your boards, uploads
+and backups (`data/`, `public/uploads/`) are never touched. Logs: `data/server.log`,
+`server.out.log`, `server.err.log`.
+
+### Versions and updates
+
+The version lives in `package.json` (see `CHANGELOG.md`) and is shown in
+**⋯ → Sobre o Milaclone**, which also checks the git repository for newer commits
+(once a day in the background too). **Atualizar agora** takes a database snapshot
+(`data/backups/board-…-before-update.db`), pulls, reinstalls dependencies only if
+`package.json` changed, restarts the server and reloads the page. Updating is only
+possible from this computer (never through the network or Tailscale), and is
+refused while program files have uncommitted edits. `Atualizar Milaclone.bat` does
+the same from the command line. Database changes between versions are numbered
+migrations in `backend/migrate.js`: each runs once, inside a transaction, after a
+snapshot.
+
+To publish a new version: bump `version` in `package.json`, add it to
+`CHANGELOG.md`, commit, `git tag vX.Y.Z`, `git push --follow-tags`; the app sees the
+new commits on its next check.
+
 ## Your data & backups
 
 - Board content: `data/board.db` (SQLite; WAL mode also writes
   `board.db-wal` and `board.db-shm` alongside it)
-- Uploaded images/files: `public/uploads/`
+- Uploaded images/files and ComfyUI results: `public/uploads/`
 
-Back up those paths and you've backed up everything. To reset to a blank
-canvas, stop the server and delete `data/board.db` (it'll be recreated on next
-start).
+**Automatic snapshots.** The server copies the database to `data/backups/`
+when it starts (if the last copy is over a day old) and then once a day,
+keeping the newest 14. Set `BACKUP_DIR` to a folder on another disk or a NAS
+so a dead drive does not take the backups with it.
+
+**Full backup.** *More (⋯) → Download backup* saves a `.tar.gz` with the
+database and every upload. *Restore from backup…* replaces all boards with an
+archive's content; the current data is snapshotted first
+(`board-…-before-restore.db`).
+
+**Trash.** Deleted cards and boards (with everything inside) stay in
+*More → Trash* for 30 days and can be restored. `Ctrl+Z` also undoes recent
+changes in the current tab.
+
+To reset to a blank canvas, stop the server and delete `data/board.db` (it'll
+be recreated on next start).
 
 ## Configuration
 
 All optional, via environment variables:
 
-| Variable     | Default              | Purpose                          |
-|--------------|----------------------|----------------------------------|
-| `PORT`       | `4321`               | Port to listen on                |
-| `HOST`       | `0.0.0.0`            | Bind address                     |
-| `DATA_DIR`   | `./data`             | Where the SQLite DB is written   |
+| Variable                 | Default            | Purpose                                         |
+|--------------------------|--------------------|-------------------------------------------------|
+| `PORT`                   | `4321`             | Port to listen on                               |
+| `HOST`                   | `0.0.0.0`          | Bind address                                    |
+| `DATA_DIR`               | `./data`           | Where the SQLite DB is written                  |
+| `UPLOAD_DIR`             | `public/uploads`   | Where uploads are stored (served at `/uploads`) |
+| `BACKUP_DIR`             | `DATA_DIR/backups` | Automatic snapshots                             |
+| `BACKUP_INTERVAL_HOURS`  | `24`               | Time between snapshots                          |
+| `BACKUP_KEEP`            | `14`               | Snapshots kept                                  |
+| `TRASH_DAYS`             | `30`               | How long deleted cards stay in the trash        |
+| `COMFYUI_URL`            | `http://127.0.0.1:8188` | Local ComfyUI server                       |
+| `TRANSLATE_API`          | MyMemory                | Translation server (MyMemory-compatible)   |
+| `RUNPOD_ENDPOINT_ID`     | —                  | RunPod Serverless endpoint (worker-comfyui 5.x) |
+| `RUNPOD_API_KEY`         | —                  | RunPod API key (stays on the server)            |
 
-Uploads always go to `public/uploads/` (they're served as static files from
-there, so the path isn't configurable).
+The ComfyUI values can also be set in the app (*More → ComfyUI settings…*);
+environment variables win.
+
+## ComfyUI and RunPod
+
+Add a **ComfyUI** node from the left rail (or double-click the canvas and type
+"comfy"). Then:
+
+1. Open *ComfyUI settings* (gear on the node) and choose **Local ComfyUI**
+   (address of your ComfyUI) or **RunPod Serverless** (endpoint ID + API key of
+   an endpoint running [worker-comfyui](https://github.com/runpod-workers/worker-comfyui) 5.x).
+2. In ComfyUI, open your workflow and use **Workflow → Export (API)**; import
+   that JSON in the settings panel.
+3. The card is its picture: the newest result, large, with a title row on top
+   (name, enhance, download, ⋯). Select it and a bar appears underneath with the
+   prompt, quick choices as chips — **proporção** (drawn, with sizes in MP),
+   **qualidade** (Rascunho 25% / Prévia 50% / Quase 75% / Final), **imagens por
+   foto** and **seed** (repeat the same result, or the same seed for the whole
+   batch) — a **Mais ajustes** button and the round **Gerar** button (Ctrl+Enter
+   also works). Pick the workflow and each image input, write a negative prompt
+   and tweak the workflow fields you chose in **Mais ajustes**. While it runs a
+   ring with the count (and the current step on a local ComfyUI) covers the
+   image, with a Stop button, and the frame glows.
+   The card adapts to the workflow: a **text-to-image** one has just the prompt; an
+   **edit** one (photo + prompt) shows what goes in, labels itself *Edição*, shows
+   the original faded until the first result and has a **compare** button (hold
+   it to see the original over the result); an **upscaler** such as SeedVR2 has
+   no prompt at all — the lead choice is the **resolution** (1080 … 4096 px, or a
+   factor) and the button says **Aprimorar**.
+4. Connect cards to the node with lines. Each *Load Image* of the workflow is an
+   **image slot** on the card; every slot picks its source (a photo, a group or
+   column, or *Em branco* for a blank image), or "Automática" to take the next
+   connected card. A **group** feeds one job per photo, so a group of three
+   photos makes three images; with two groups, photos are paired by position.
+   A **note** connected to the node is the prompt (the English twin when the
+   note has a translation); the prompt box adds text after it.
+5. *Escolher campos* (the sliders button in **Mais ajustes**) lists every plain
+   value in the workflow (steps, size, LoRA strength, sampler…) so you can put the
+   ones you want to tweak there. With a local ComfyUI running, choices and limits
+   come from ComfyUI itself; a node's width and height become a drawn picker.
+6. Press **Gerar**. Results appear as image cards in a group **under** the
+   source group or photo (next to the node when there is none, or under
+   everything with a dashed line back when something is in the way); each new
+   batch stacks below the previous one so you can pick the best. **Parar**
+   cancels what is still queued or running.
+7. **Qualidade** below Final reduces the workflow's size fields (width, height,
+   resolution, megapixels… — you choose which under *Escolher campos → teste*)
+   so a sequence can be tried quickly; set it back to Final for the real run.
+
+**Long runs.** Jobs are never given up on while ComfyUI still has them (it runs
+queued jobs one after another, so the third image of a slow model waits for the
+first two); a job is only reported lost when ComfyUI no longer knows it. If one
+was given up on anyway, *Recuperar imagens que não chegaram* on the card (and a
+server restart) fetches the finished images again.
+
+**Turning ComfyUI on.** In the settings, *Arquivo para ligar o ComfyUI* takes the
+full path of your start file (for the portable build, `run_nvidia_gpu.bat`).
+With it set, **Gerar** starts ComfyUI when it is off and waits until it answers,
+and *Ligar agora* does it on demand. It only works from the computer running
+both, and the file can only be set from there (never through the network or
+Tailscale). On RunPod the equivalent is the endpoint's *cold start*, when a
+worker boots for the first job (the card shows the batch as queued meanwhile).
+
+### Enhancing (upscale)
+
+Every image has an **enhance icon** (always visible on generated ones). It opens
+the options: the *enhancer* (any one-image workflow, such as SeedVR2), its
+fields, the test size and **which images** — this one, the selection, the whole
+group, or every board image not enhanced yet (up to 64 per run). Shift-click the
+icon, or use *Aprimorar com os últimos ajustes* in the right-click menu, to run
+straight away. The same dialog opens from the right-click menu, the selection
+bar and *⋯ → Aprimorador (upscale)…*.
+Results are framed under the group the images are in (or beside it, or under
+everything with a dashed line back when something is in the way — they never
+cover other cards), marked *Aprimorada*, and the original gets a check. Workflows that end in a Preview node instead of Save
+Image work too.
+
+Prompt and negative prompt go into the text nodes feeding the sampler. On
+RunPod each variation is its own job, so several workers can render in
+parallel; input photos are resized to at most 2048 px to stay under RunPod's
+10 MB request limit. Workflows must be exported with *Export (API)*; ones that
+use subgraphs are flattened by that export.
 
 ## Tech stack
 
@@ -274,7 +418,8 @@ there, so the path isn't configurable).
 ## Development
 
 ```bash
-npm test        # unit/API tests (node --test)
+npm test        # API + ComfyUI bridge tests (node --test)
+npm run qa      # backend tests + all Chromium end-to-end tests (silent on success)
 npm run test:e2e   # Playwright end-to-end tests
 ```
 
@@ -283,18 +428,21 @@ The Playwright tests drive a real browser, so run
 
 ## Not included (yet)
 
-These were left out to keep the first version small and focused; they're
-natural next additions: line/arrow connectors between cards, freehand
-drawing/sketch cards, multi-select, and real-time multi-user sync (the current
-model is single-document, last-write-wins — great for one person across their
-own devices).
+Freehand drawing/sketch cards, comments threads, and merging of simultaneous
+edits (changes reach other open devices live, but the last write wins).
 
 ## Keyboard shortcuts
 
 - `N` note · `L` link · `T` to-do · `B` board · `C` column · `M` comment
-- `⌘/Ctrl+C` copy · `⌘/Ctrl+X` cut · `⌘/Ctrl+V` paste · `⌘/Ctrl+D` duplicate
-- `Enter` rename selected card · `Esc` deselect / cancel armed tool
-- `Delete` / `Backspace` remove the selected card (when not typing)
+- `Ctrl+K` or `/` search all boards and run commands · double-click empty canvas to add a card there
+- `Ctrl+Z` undo · `Ctrl+Shift+Z` / `Ctrl+Y` redo
+- `Ctrl+C` copy · `Ctrl+X` cut · `Ctrl+V` paste · `Ctrl+D` duplicate · `Ctrl+A` select all
+- `Ctrl+G` group · `Ctrl+Shift+G` ungroup · `F` fit board to screen
+- Arrow keys move the selection (`Shift` = 10 px); hold `Space` and drag to pan
+- `Enter` edit the selected card · `Esc` leave the field, then deselect
+- `Delete` / `Backspace` move the selection to the trash
+- In a note: `Ctrl+B` bold, `Ctrl+I` italic (Markdown)
+- In the image viewer: `←`/`→` previous/next, `+`/`-` zoom, `0` fit, `Esc` close
 
 ## License
 

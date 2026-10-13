@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 
 test('util.normalizeUrl coerces bare hosts to https and leaves valid urls alone', async ({ page }) => {
   const out = await page.evaluate(async () => {
-    const { normalizeUrl } = await import('/js/util.js');
+    const { normalizeUrl } = await import('/js/core/util.js');
     return {
       empty: normalizeUrl(''),
       undef: normalizeUrl(undefined),
@@ -34,7 +34,7 @@ test('util.normalizeUrl coerces bare hosts to https and leaves valid urls alone'
 
 test('util.colorVar maps known colors and falls back to slate', async ({ page }) => {
   const out = await page.evaluate(async () => {
-    const { colorVar } = await import('/js/util.js');
+    const { colorVar } = await import('/js/core/util.js');
     return { blue: colorVar('blue'), bogus: colorVar('chartreuse'), missing: colorVar(undefined) };
   });
   expect(out.blue).toBe('var(--c-blue)');
@@ -44,7 +44,7 @@ test('util.colorVar maps known colors and falls back to slate', async ({ page })
 
 test('util.isLocked reflects the data.locked flag', async ({ page }) => {
   const out = await page.evaluate(async () => {
-    const { isLocked } = await import('/js/util.js');
+    const { isLocked } = await import('/js/core/util.js');
     return {
       locked: isLocked({ data: { locked: true } }),
       unlocked: isLocked({ data: { locked: false } }),
@@ -60,7 +60,7 @@ test('util.isLocked reflects the data.locked flag', async ({ page }) => {
 
 test('util.rid produces distinct short ids', async ({ page }) => {
   const out = await page.evaluate(async () => {
-    const { rid } = await import('/js/util.js');
+    const { rid } = await import('/js/core/util.js');
     const a = rid(), b = rid();
     return { a, b, len: a.length };
   });
@@ -71,7 +71,7 @@ test('util.rid produces distinct short ids', async ({ page }) => {
 
 test('create.defaultsFor returns the right shape per card type', async ({ page }) => {
   const out = await page.evaluate(async () => {
-    const { defaultsFor } = await import('/js/create.js');
+    const { defaultsFor } = await import('/js/board/create.js');
     const d = t => defaultsFor(t);
     return {
       note: d('note'),
@@ -98,7 +98,7 @@ test('create.defaultsFor returns the right shape per card type', async ({ page }
 
 test('viewport.loadCam round-trips a saved camera and defaults when absent', async ({ page }) => {
   const out = await page.evaluate(async () => {
-    const { loadCam } = await import('/js/viewport.js');
+    const { loadCam } = await import('/js/board/viewport.js');
     localStorage.setItem('cam:unit-test', JSON.stringify({ x: 12, y: 34, scale: 1.5 }));
     const saved = loadCam('unit-test');
     localStorage.removeItem('cam:unit-test');

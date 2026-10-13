@@ -6,8 +6,10 @@ public/uploads/*
 .DS_Store
 
 .e2e-data/
+.explore-data/
 test-results/
 playwright-report/
+qa-report/
 
 # Tailscale sidecar auth key
 .env

@@ -5,17 +5,16 @@ const { expect } = require('@playwright/test');
 // Each test works inside its own freshly-created (empty) board canvas so tests
 // stay independent despite sharing one server + DB.
 async function freshCanvas(page) {
-  await page.goto('/');
-  const childId = await page.evaluate(async () => {
-    const root = (await (await fetch('/api/root')).json()).rootCanvasId;
-    const it = await (await fetch('/api/item', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ canvasId: root, type: 'board', data: { title: 'fixture' } }),
-    })).json();
-    return it.data.childCanvasId;
-  });
+  // Create the isolated fixture before navigation. Visiting shared Home first
+  // loads covers from other tests, including deliberately invalid upload data.
+  const root = (await (await page.request.get('/api/root')).json()).rootCanvasId;
+  const item = await (await page.request.post('/api/item', {
+    data: { canvasId: root, type: 'board', data: { title: 'fixture' } }
+  })).json();
+  const childId = item.data.childCanvasId;
   await page.goto('/#' + childId);
   await expect.poll(() => page.evaluate(() => location.hash)).toBe('#' + childId);
+  await expect(page.locator('#crumbs .current')).toHaveText('fixture');
   return childId;
 }
 

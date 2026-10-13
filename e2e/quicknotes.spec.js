@@ -27,7 +27,7 @@ async function seedList(page, title, tasks) {
 async function openQuickNotes(page) {
   await page.click('#mNotes');
   await expect(page.locator('#quicknotes')).toBeVisible();
-  await expect(page.locator('.qn-title')).toHaveText('Quick notes');
+  await expect(page.locator('.qn-title')).toHaveText('Notas rápidas');
 }
 
 const listRow = (page, title) => page.locator('.qn-row-btn', { hasText: title });
@@ -56,7 +56,7 @@ test('drilling into a list shows open tasks and a collapsible completed group', 
   await listRow(page, title).click();
 
   await expect(page.locator('#qnListTitle')).toHaveText(title);
-  await expect(page.locator('#qnListMeta')).toContainText('1 of 2');
+  await expect(page.locator('#qnListMeta')).toContainText('1 de 2');
   await expect(taskRow(page, 'Wash face')).toBeVisible();
   await expect(taskRow(page, 'Shower')).toHaveClass(/done/);
 
@@ -73,7 +73,7 @@ test('checking a task persists and moves it into Completed', async ({ page }) =>
   const saved = page.waitForResponse(r => r.url().includes('/api/item/' + id) && r.request().method() === 'PATCH');
   await taskRow(page, 'Buy milk').locator('.qn-box').click();
   await saved;
-  await expect(page.locator('.qn-comphead')).toContainText('Completed · 1');
+  await expect(page.locator('.qn-comphead')).toContainText('Concluídas · 1');
 
   // the write lands on the same todo card the canvas renders
   const tasks = await page.evaluate(async (id) => {
@@ -93,7 +93,7 @@ test('starring a task feeds the Starred smart view', async ({ page }) => {
 
   await page.click('#qnListBack');
   await page.locator('.qn-tile[data-smart="starred"]').click();
-  await expect(page.locator('#qnListTitle')).toHaveText('Starred');
+  await expect(page.locator('#qnListTitle')).toHaveText('Favoritas');
   // smart views name the source list on a sub-line and hide the add button
   await expect(taskRow(page, 'Call the plumber').locator('.qn-task-sub')).toHaveText(title);
   await expect(page.locator('#qnAddBar')).toBeHidden();
@@ -114,7 +114,7 @@ test('the add bar appends tasks and stays open for the next one', async ({ page 
   await page.fill('#qnNewTask', 'Bread');
   await page.press('#qnNewTask', 'Enter');
   await expect(page.locator('.qn-task')).toHaveCount(2);
-  await expect(page.locator('#qnListMeta')).toContainText('0 of 2');
+  await expect(page.locator('#qnListMeta')).toContainText('0 de 2');
 
   await page.click('#qnAddCancel');
   await expect(page.locator('#qnAddTask')).toBeVisible();
@@ -132,7 +132,7 @@ test('task detail edits the note, due date and tags', async ({ page }) => {
 
   await page.fill('#qnNote', 'ask about september');
   await page.locator('#qnDetails .qn-dateinput').fill('2030-08-07');
-  await expect(page.locator('.qn-due-label')).toHaveText('Due Wed, Aug 7');
+  await expect(page.locator('.qn-due-label')).toHaveText('Vence qua., 7 de ago.');
 
   await page.click('.qn-addtag');
   await page.fill('.qn-sheet-field input', 'faith');
@@ -177,9 +177,9 @@ test('search matches task text and opens the task', async ({ page }) => {
   await openQuickNotes(page);
 
   await page.click('#qnSearchBtn');
-  await expect(page.locator('.qn-blank')).toContainText('Type to search');
+  await expect(page.locator('.qn-blank')).toContainText('Digite para buscar');
   await page.fill('#qnQuery', needle);
-  await expect(page.locator('#qnResults .qn-count')).toHaveText('1 result');
+  await expect(page.locator('#qnResults .qn-count')).toHaveText('1 resultado');
 
   await page.locator('#qnResults .qn-task').click();
   await expect(page.locator('#qnTaskTitle')).toHaveText(needle);
@@ -191,7 +191,7 @@ test('search reports when nothing matches', async ({ page }) => {
   await openQuickNotes(page);
   await page.click('#qnSearchBtn');
   await page.fill('#qnQuery', 'zzz-no-such-task-zzz');
-  await expect(page.locator('.qn-blank')).toContainText('No matching tasks');
+  await expect(page.locator('.qn-blank')).toContainText('Nenhuma tarefa encontrada');
   await page.click('#qnSearchCancel');
   await expect(page.locator('.qn-title')).toBeVisible();
 });
@@ -201,10 +201,10 @@ test('the add sheet creates a todo list and drops you into it', async ({ page })
   await openQuickNotes(page);
   await page.click('#qnAdd');
   const created = page.waitForResponse(r => r.url().endsWith('/api/item') && r.request().method() === 'POST');
-  await page.locator('.qn-sheet-row', { hasText: 'Todo list' }).click();
+  await page.locator('.qn-sheet-row', { hasText: 'Lista de tarefas' }).click();
   await created;
 
-  await expect(page.locator('#qnListTitle')).toHaveText('New list');
+  await expect(page.locator('#qnListTitle')).toHaveText('Nova lista');
   const title = uniq('Renamed');
   await page.locator('#qnListTitle').fill(title);
   await page.locator('#qnListTitle').blur();
@@ -234,7 +234,7 @@ test('desktop phone button opens the From your phone popover', async ({ page }) 
   await expect(page.locator('#quicknotes')).toBeVisible();
   await expect(page.locator('body')).toHaveClass(/qn-desk/);
   await expect(page.locator('#qnDeskHead')).toBeVisible();
-  await expect(page.locator('#qnDeskHead')).toHaveText('From your phone');
+  await expect(page.locator('#qnDeskHead')).toHaveText('Do seu celular');
   await expect(listRow(page, title)).toBeVisible();
 
   await page.click('#stage', { position: { x: 40, y: 40 } });
