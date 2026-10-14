@@ -1,5 +1,19 @@
 # Third-party references
 
+## Milaclone original
+
+This project is an expanded version of Milaclone, originally created by
+Ellington Shephard (`@ellshep`):
+
+- Upstream repository: https://github.com/ellshep/milaclone
+- Upstream license: MIT
+- Original copyright: Copyright (c) 2026 ellshep
+
+The upstream license and copyright notice are preserved in `LICENSE`. The
+current version adds substantial features including ComfyUI and RunPod
+integration, Windows installation, translation, themes, connections, history,
+trash, backups and export tools.
+
 ## ComfyUI Frontend / LiteGraph interaction model
 
 The canvas selection and visual-group behavior was adapted with reference to
